@@ -1,7 +1,7 @@
 /**
  * Main App Component for the GrooveNote MVP
  * This is a React-based music recording application with a mobile-first design
- * The app features four main screens: projects, folders, recording, and edit
+ * The app features three main screens: projects, folders, and edit
  * utilizing Material-UI (MUI) for styling and components
  */
 
@@ -12,7 +12,7 @@ import SwipeableViews from "react-swipeable-views";
 // Import components
 import Header from "../components/common/Header";
 import Navigation from "../components/navigation/Navigation";
-import RecordingControls from "../components/recording/RecordingControls";
+import GlobalRecordingControls from "../components/common/GlobalRecordingControls";
 
 // Import utils
 import { formatTime } from "../utils/timeFormatter";
@@ -20,13 +20,15 @@ import theme from "../styles/theme";
 
 const App = () => {
   // State Management
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [index, setIndex] = useState(3);
+  const [index, setIndex] = useState(2); // Default to edit view since rec is removed
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [title, setTitle] = useState("First Song");
+  
+  // Recording state will be moved to a global context later
   const [isRecording, setIsRecording] = useState(false);
-  const [recPosition, setRecPosition] = useState("right");
   const [recordingTime, setRecordingTime] = useState(0);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recPosition, setRecPosition] = useState("right");
 
   // Recording Timer Effect
   useEffect(() => {
@@ -38,18 +40,6 @@ const App = () => {
     }
     return () => clearInterval(timer);
   }, [isRecording]);
-
-  // Event Handlers
-  const handleRecClick = () => {
-    if (!isRecording) {
-      setRecordingTime(0);
-      setRecPosition("center");
-      setTimeout(() => setIsRecording(true), 300);
-    } else {
-      setIsRecording(false);
-      setRecPosition("right");
-    }
-  };
 
   const handleTabClick = (i) => {
     setIndex(i);
@@ -67,6 +57,7 @@ const App = () => {
           backgroundColor: "#f9f9f9",
           border: "1px solid #ddd",
           overflow: "hidden",
+          position: "relative", // Added for proper positioning of fixed elements
         }}
       >
         <Box
@@ -83,7 +74,7 @@ const App = () => {
             style={{ flex: 1, height: "100%" }}
             containerStyle={{ height: "100%" }}
           >
-            {["projects", "folders", "rec", "edit"].map((screen) => (
+            {["collections", "projects", "edit"].map((screen) => (
               <Box
                 key={screen}
                 sx={{
@@ -102,130 +93,59 @@ const App = () => {
                   setTitle={setTitle}
                 />
 
-                {screen === "edit" && (
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
                   <Box
                     sx={{
-                      flexGrow: 1,
-                      display: "flex",
-                      flexDirection: "column",
+                      height: 120,
+                      backgroundColor: "#ccc",
+                      flexShrink: 0,
                     }}
-                  >
-                    <Box
-                      sx={{
-                        height: 120,
-                        backgroundColor: "#ccc",
-                        flexShrink: 0,
-                      }}
-                    />
-                    <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
-                      {[...Array(6)].map((_, i) => (
-                        <Box
-                          key={i}
-                          sx={{
-                            height: 80,
-                            backgroundColor: "#fff",
-                            mb: 1,
-                            borderRadius: 1,
-                          }}
-                        />
-                      ))}
-                    </Box>
-                    <Box
-                      sx={{
-                        height: 120,
-                        backgroundColor: "#ccc",
-                        flexShrink: 0,
-                      }}
-                    />
-                    
-                    {!isRecording && (
+                  />
+                  <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
+                    {[...Array(6)].map((_, i) => (
                       <Box
-                        onClick={handleRecClick}
+                        key={i}
                         sx={{
-                          position: "absolute",
-                          bottom: 160,
-                          height: 220,
-                          width: "100%",
-                          display: "flex",
-                          justifyContent:
-                            recPosition === "right" ? "flex-start" : "center",
-                          alignItems: "center",
-                          transition: "all 0.3s ease-in-out",
-                          pointerEvents: isRecording ? "none" : "auto",
-                          pl: recPosition === "right" ? "calc(100% - 40px)" : 0,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            width: 60,
-                            height: 60,
-                            borderRadius: recPosition === "right" ? "50%" : 0,
-                            backgroundColor: "gray",
-                            cursor: "pointer",
-                          }}
-                        />
-                      </Box>
-                    )}
-                    
-                    {isRecording && (
-                      <RecordingControls
-                        showDeleteDialog={showDeleteDialog}
-                        setShowDeleteDialog={setShowDeleteDialog}
-                        recPosition={recPosition}
-                        isRecording={isRecording}
-                        setIsRecording={setIsRecording}
-                        setRecPosition={setRecPosition}
-                        setRecordingTime={setRecordingTime}
-                        recordingTime={recordingTime}
-                        formatTime={formatTime}
-                      />
-                    )}
-                  </Box>
-                )}
-
-                {screen === "rec" && (
-                  <Box sx={{ flexGrow: 1, position: "relative" }}>
-                    {!isRecording && (
-                      <Box
-                        onClick={handleRecClick}
-                        sx={{
-                          position: "absolute",
-                          bottom: 160,
-                          right: recPosition === "right" ? -20 : "50%",
-                          transform:
-                            recPosition === "right"
-                              ? "none"
-                              : "translateX(50%)",
-                          width: 60,
-                          height: 60,
-                          borderRadius: "50%",
-                          backgroundColor: "gray",
-                          transition: "all 0.3s ease-in-out",
-                          cursor: "pointer",
+                          height: 80,
+                          backgroundColor: "#fff",
+                          mb: 1,
+                          borderRadius: 1,
                         }}
                       />
-                    )}
-                    {isRecording && (
-                      <RecordingControls
-                        showDeleteDialog={showDeleteDialog}
-                        setShowDeleteDialog={setShowDeleteDialog}
-                        recPosition={recPosition}
-                        isRecording={isRecording}
-                        setIsRecording={setIsRecording}
-                        setRecPosition={setRecPosition}
-                        setRecordingTime={setRecordingTime}
-                        recordingTime={recordingTime}
-                        formatTime={formatTime}
-                      />
-                    )}
+                    ))}
                   </Box>
-                )}
+                  <Box
+                    sx={{
+                      height: 120,
+                      backgroundColor: "#ccc",
+                      flexShrink: 0,
+                    }}
+                  />
+                </Box>
               </Box>
             ))}
           </SwipeableViews>
         </Box>
 
         <Navigation index={index} handleTabClick={handleTabClick} />
+
+        <GlobalRecordingControls
+          showDeleteDialog={showDeleteDialog}
+          setShowDeleteDialog={setShowDeleteDialog}
+          isRecording={isRecording}
+          setIsRecording={setIsRecording}
+          recordingTime={recordingTime}
+          setRecordingTime={setRecordingTime}
+          formatTime={formatTime}
+          recPosition={recPosition}
+          setRecPosition={setRecPosition}
+        />
       </Box>
     </ThemeProvider>
   );

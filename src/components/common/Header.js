@@ -50,7 +50,7 @@ const Header = ({
         )
       ) : (
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-          {screen.charAt(0).toUpperCase() + screen.slice(1)}
+          {(screen === "projects" || screen === "collections") ? screen : screen.charAt(0).toUpperCase() + screen.slice(1)}
         </Typography>
       )}
 
