@@ -5,7 +5,7 @@
  * utilizing Material-UI (MUI) for styling and components
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Box, ThemeProvider } from "@mui/material";
 import SwipeableViews from "react-swipeable-views";
 
@@ -13,6 +13,7 @@ import SwipeableViews from "react-swipeable-views";
 import Header from "../components/common/Header";
 import Navigation from "../components/navigation/Navigation";
 import GlobalRecordingControls from "../components/common/GlobalRecordingControls";
+import AudioControls from "../components/common/AudioControls";
 
 // Import utils
 import { formatTime } from "../utils/timeFormatter";
@@ -29,6 +30,7 @@ const App = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [recPosition, setRecPosition] = useState("right");
+  const [resetRecordingFn, setResetRecordingFn] = useState(null);
 
   // Recording Timer Effect
   useEffect(() => {
@@ -44,6 +46,27 @@ const App = () => {
   const handleTabClick = (i) => {
     setIndex(i);
   };
+
+  const handleResetRecording = useCallback((resetFn) => {
+    setResetRecordingFn(() => resetFn);
+  }, []);
+
+  const handleDeleteRecording = useCallback(() => {
+    setShowDeleteDialog(false);
+    setIsRecording(false);
+    setRecPosition("right");
+    setRecordingTime(0);
+    // Clear the audio completely
+    if (resetRecordingFn) {
+      resetRecordingFn();
+    }
+  }, [resetRecordingFn]);
+
+  const handleNewProject = useCallback(() => {
+    // Just stop recording, don't clear the audio
+    setIsRecording(false);
+    setRecPosition("right");
+  }, []); // Remove resetRecordingFn dependency since we don't use it anymore
 
   return (
     <ThemeProvider theme={theme}>
@@ -126,7 +149,12 @@ const App = () => {
                       backgroundColor: "#ccc",
                       flexShrink: 0,
                     }}
-                  />
+                  >
+                    <AudioControls 
+                      isRecording={isRecording} 
+                      onReset={handleResetRecording}
+                    />
+                  </Box>
                 </Box>
               </Box>
             ))}
@@ -145,6 +173,8 @@ const App = () => {
           formatTime={formatTime}
           recPosition={recPosition}
           setRecPosition={setRecPosition}
+          onDelete={handleDeleteRecording}
+          onNewProject={handleNewProject}
         />
       </Box>
     </ThemeProvider>
