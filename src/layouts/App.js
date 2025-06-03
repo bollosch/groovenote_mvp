@@ -18,6 +18,7 @@ import AudioControls from "../components/common/AudioControls";
 // Import utils
 import { formatTime } from "../utils/timeFormatter";
 import theme from "../styles/theme";
+import { AudioProvider } from '../context/AudioContext';
 
 const App = () => {
   // State Management
@@ -70,113 +71,120 @@ const App = () => {
 
   return (
     <ThemeProvider theme={theme}>
-      <Box
-        sx={{
-          width: 402,
-          height: 874,
-          margin: "auto",
-          display: "flex",
-          flexDirection: "column",
-          backgroundColor: "#f9f9f9",
-          border: "1px solid #ddd",
-          overflow: "hidden",
-          position: "relative", // Added for proper positioning of fixed elements
-        }}
-      >
+      <AudioProvider>
         <Box
           sx={{
-            flex: 1,
+            width: 402,
+            height: 874,
+            margin: "auto",
             display: "flex",
             flexDirection: "column",
+            backgroundColor: "#f9f9f9",
+            border: "1px solid #ddd",
             overflow: "hidden",
+            position: "relative", // Added for proper positioning of fixed elements
           }}
         >
-          <SwipeableViews
-            index={index}
-            onChangeIndex={setIndex}
-            style={{ flex: 1, height: "100%" }}
-            containerStyle={{ height: "100%" }}
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
           >
-            {["collections", "projects", "edit"].map((screen) => (
-              <Box
-                key={screen}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  overflow: "hidden",
-                  position: "relative",
-                }}
-              >
-                <Header
-                  screen={screen}
-                  title={title}
-                  isEditingTitle={isEditingTitle}
-                  setIsEditingTitle={setIsEditingTitle}
-                  setTitle={setTitle}
-                />
-
+            <SwipeableViews
+              index={index}
+              onChangeIndex={setIndex}
+              style={{ flex: 1, height: "100%" }}
+              containerStyle={{ height: "100%" }}
+            >
+              {["collections", "projects", "edit"].map((screen) => (
                 <Box
+                  key={screen}
                   sx={{
-                    flexGrow: 1,
                     display: "flex",
                     flexDirection: "column",
+                    height: "100%",
+                    overflow: "hidden",
+                    position: "relative",
                   }}
                 >
-                  <Box
-                    sx={{
-                      height: 120,
-                      backgroundColor: "#ccc",
-                      flexShrink: 0,
-                    }}
+                  <Header
+                    screen={screen}
+                    title={title}
+                    isEditingTitle={isEditingTitle}
+                    setIsEditingTitle={setIsEditingTitle}
+                    setTitle={setTitle}
                   />
-                  <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
-                    {[...Array(6)].map((_, i) => (
-                      <Box
-                        key={i}
-                        sx={{
-                          height: 80,
-                          backgroundColor: "#fff",
-                          mb: 1,
-                          borderRadius: 1,
-                        }}
-                      />
-                    ))}
-                  </Box>
+
                   <Box
                     sx={{
-                      height: 120,
-                      backgroundColor: "#ccc",
-                      flexShrink: 0,
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
                     }}
                   >
-                    <AudioControls 
-                      isRecording={isRecording} 
-                      onReset={handleResetRecording}
-                    />
+                    {screen === "edit" && (
+                      <Box
+                        sx={{
+                          height: 120,
+                          backgroundColor: "#ccc",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <Box sx={{ flexGrow: 1, overflowY: "auto", px: 2, py: 1 }}>
+                      {[...Array(6)].map((_, i) => (
+                        <Box
+                          key={i}
+                          sx={{
+                            height: 80,
+                            backgroundColor: "#fff",
+                            mb: 1,
+                            borderRadius: 1,
+                          }}
+                        />
+                      ))}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            ))}
-          </SwipeableViews>
+              ))}
+            </SwipeableViews>
+          </Box>
+
+          {/* Make AudioControls a global floating bar above Navigation */}
+          <Box sx={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 60, // height of Navigation
+            zIndex: 10,
+            width: '100%',
+          }}>
+            <AudioControls 
+              isRecording={isRecording} 
+              onReset={handleResetRecording}
+            />
+          </Box>
+
+          <Navigation index={index} handleTabClick={handleTabClick} />
+
+          <GlobalRecordingControls
+            showDeleteDialog={showDeleteDialog}
+            setShowDeleteDialog={setShowDeleteDialog}
+            isRecording={isRecording}
+            setIsRecording={setIsRecording}
+            recordingTime={recordingTime}
+            setRecordingTime={setRecordingTime}
+            formatTime={formatTime}
+            recPosition={recPosition}
+            setRecPosition={setRecPosition}
+            onDelete={handleDeleteRecording}
+            onNewProject={handleNewProject}
+          />
         </Box>
-
-        <Navigation index={index} handleTabClick={handleTabClick} />
-
-        <GlobalRecordingControls
-          showDeleteDialog={showDeleteDialog}
-          setShowDeleteDialog={setShowDeleteDialog}
-          isRecording={isRecording}
-          setIsRecording={setIsRecording}
-          recordingTime={recordingTime}
-          setRecordingTime={setRecordingTime}
-          formatTime={formatTime}
-          recPosition={recPosition}
-          setRecPosition={setRecPosition}
-          onDelete={handleDeleteRecording}
-          onNewProject={handleNewProject}
-        />
-      </Box>
+      </AudioProvider>
     </ThemeProvider>
   );
 };

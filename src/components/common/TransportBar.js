@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Box, IconButton, Typography } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -23,6 +23,9 @@ const TransportBar = ({
 }) => {
   // State for repeat mode cycling
   const [repeatMode, setRepeatMode] = useState(0); // 0: Repeat, 1: RepeatOne, 2: RepeatOn
+
+  // Ref for the timeline bar
+  const timelineRef = useRef(null);
 
   const handleRepeatClick = () => {
     setRepeatMode((prev) => (prev + 1) % 3);
@@ -51,13 +54,24 @@ const TransportBar = ({
   // Calculate progress percentage
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Handle click on timeline for seeking
+  const handleTimelineClick = (event) => {
+    if (!hasRecording || !timelineRef.current) return;
+    const rect = timelineRef.current.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const width = rect.width;
+    const percent = Math.min(Math.max(clickX / width, 0), 1);
+    const seekTime = percent * duration;
+    if (onSeek) onSeek(seekTime);
+  };
+
   return (
     <Box sx={{ 
       width: '402px',
       margin: '0 auto',
       position: 'relative',
-      py: 3,
-      backgroundColor: '#f5f5f5' // Debug: add background to see container
+      py: 0.5,
+      backgroundColor: '#f5f5f5'
     }}>
       {/* Transport Controls Container */}
       <Box sx={{ 
@@ -66,8 +80,8 @@ const TransportBar = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        mb: 2,
-        backgroundColor: '#e0e0e0' // Debug: add background
+        mb: 0,
+        backgroundColor: '#e0e0e0'
       }}>
         {/* Left Controls Group */}
         <IconButton 
@@ -160,16 +174,22 @@ const TransportBar = ({
           {formatTime(currentTime)}
         </Typography>
         {/* Timeline Bar */}
-        <Box sx={{
-          flex: 1,
-          height: 8,
-          backgroundColor: '#e0e0e0',
-          borderRadius: 4,
-          mx: 2,
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
+        <Box
+          ref={timelineRef}
+          sx={{
+            flex: 1,
+            height: 8,
+            backgroundColor: '#e0e0e0',
+            borderRadius: 4,
+            mx: 2,
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: hasRecording ? 'pointer' : 'default',
+            position: 'relative'
+          }}
+          onClick={handleTimelineClick}
+        >
           <Box sx={{
             height: '100%',
             width: `${progress}%`,
@@ -183,15 +203,6 @@ const TransportBar = ({
           {formatTime(duration)}
         </Typography>
       </Box>
-
-      {/* MINIMAL TIMELINE DEBUG: Just a colored bar */}
-      <Box sx={{
-        width: '80%',
-        height: 12,
-        backgroundColor: 'red',
-        margin: '16px auto',
-        borderRadius: 6
-      }} />
     </Box>
   );
 };

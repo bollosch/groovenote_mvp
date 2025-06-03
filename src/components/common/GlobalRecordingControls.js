@@ -1,28 +1,34 @@
 import React from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { useAudioContext } from '../../context/AudioContext';
 
 const GlobalRecordingControls = ({
   showDeleteDialog,
   setShowDeleteDialog,
-  isRecording,
-  setIsRecording,
-  recordingTime,
-  setRecordingTime,
   formatTime,
   recPosition,
-  setRecPosition
+  setRecPosition,
+  onDelete,
+  onNewProject
 }) => {
+  const { isRecording, startRecording, stopRecording, recordingTime } = useAudioContext();
+
   // Handle recording button click/swipe
   const handleRecClick = () => {
     if (!isRecording) {
-      setRecordingTime(0);
       setRecPosition("center");
-      setTimeout(() => setIsRecording(true), 300);
+      setTimeout(() => startRecording(), 300);
     } else {
-      setIsRecording(false);
+      stopRecording();
       setRecPosition("right");
     }
+  };
+
+  // Handle delete and reset recPosition
+  const handleDelete = () => {
+    if (onDelete) onDelete();
+    setRecPosition("right");
   };
 
   // Restore the original styles and logic
@@ -54,12 +60,7 @@ const GlobalRecordingControls = ({
           </Typography>
           <Typography
             sx={{ cursor: "pointer", fontWeight: "bold" }}
-            onClick={() => {
-              setShowDeleteDialog(false);
-              setIsRecording(false);
-              setRecPosition("right");
-              setRecordingTime(0);
-            }}
+            onClick={handleDelete}
           >
             yes
           </Typography>
@@ -133,7 +134,12 @@ const GlobalRecordingControls = ({
               }}
             />
             <Typography sx={{ mt: 1 }}>{formatTime(recordingTime)}</Typography>
-            <Typography sx={{ cursor: "pointer" }}>start new project</Typography>
+            <Typography 
+              sx={{ cursor: "pointer" }}
+              onClick={onNewProject}
+            >
+              start new project
+            </Typography>
           </Box>
         </Box>
       )}
