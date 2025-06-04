@@ -177,6 +177,7 @@ export const AudioProvider = ({ children }) => {
 
   // Reset recording
   const resetRecording = useCallback(() => {
+    console.log('[Debug] AudioContext: Resetting recording state');
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause();
       audioPlayerRef.current = null;
@@ -188,9 +189,11 @@ export const AudioProvider = ({ children }) => {
       timeUpdateIntervalRef.current = null;
     }
     if (mediaRecorderRef.current?.state === 'recording') {
+      console.log('[Debug] AudioContext: Stopping active recording for deletion');
       shouldDeleteRef.current = true;
       mediaRecorderRef.current.stop();
     } else {
+      console.log('[Debug] AudioContext: Clearing recordings array');
       setRecordings([]);
       setDuration(0);
     }
@@ -213,6 +216,7 @@ export const AudioProvider = ({ children }) => {
 
   // Stop recording with error handling
   const stopRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: stopRecording called');
     try {
       setRecordingError(null);
       setIsRecording(false);

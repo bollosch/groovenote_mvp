@@ -20,6 +20,9 @@ const GlobalRecordingControls = ({
     recordingError 
   } = useAudioContext();
 
+  // Local debug message state
+  const [debugMsg, setDebugMsg] = React.useState('');
+
   // Cleanup effect
   useEffect(() => {
     return () => {
@@ -48,6 +51,8 @@ const GlobalRecordingControls = ({
 
   // Handle delete with proper cleanup
   const handleDelete = useCallback(() => {
+    setDebugMsg('[UI Debug] YES clicked - delete confirmed');
+    console.log('[Debug] Delete confirmed - cleaning up recording');
     if (onDelete) onDelete();
     setRecPosition("right");
     setShowDeleteDialog(false);
@@ -55,8 +60,13 @@ const GlobalRecordingControls = ({
 
   // Handle cancel (no) in delete dialog
   const handleCancelDelete = useCallback(() => {
+    setDebugMsg('[UI Debug] NO clicked - cancel delete');
+    console.log('[Debug] Delete cancelled - preserving recording state');
     setShowDeleteDialog(false);
-  }, [setShowDeleteDialog]);
+    if (isRecording) {
+      console.log('[Debug] Recording is active - maintaining recording state');
+    }
+  }, [setShowDeleteDialog, isRecording]);
 
   // If there's a recording error, only show the error message
   if (recordingError) {
@@ -116,6 +126,11 @@ const GlobalRecordingControls = ({
           display: showDeleteDialog ? "block" : "none",
         }}
       >
+        {/* Debug info */}
+        <Box sx={{ mb: 1, p: 1, background: '#eee', borderRadius: 1 }}>
+          <Typography variant="caption" color="secondary">[Debug] isRecording: {String(isRecording)} | showDeleteDialog: {String(showDeleteDialog)}</Typography>
+          <Typography variant="caption" color="primary">{debugMsg}</Typography>
+        </Box>
         <Typography id="delete-dialog-title" mb={1}>Delete recording?</Typography>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
           <Typography
@@ -193,7 +208,7 @@ const GlobalRecordingControls = ({
             }}
           >
             <Typography sx={{ cursor: "pointer" }}>set marker</Typography>
-            <IconButton onClick={() => setShowDeleteDialog(true)}>
+            <IconButton onClick={() => { console.log('[Debug] Delete icon clicked - opening dialog'); setShowDeleteDialog(true); }}>
               <DeleteIcon />
             </IconButton>
             <Box
