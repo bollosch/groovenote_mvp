@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useAudioContext } from '../../context/AudioContext';
@@ -12,30 +12,91 @@ const GlobalRecordingControls = ({
   onDelete,
   onNewProject
 }) => {
-  const { isRecording, startRecording, stopRecording, recordingTime } = useAudioContext();
+  const { 
+    isRecording, 
+    startRecording, 
+    stopRecording, 
+    recordingTime,
+    recordingError 
+  } = useAudioContext();
 
-  // Handle recording button click/swipe
-  const handleRecClick = () => {
-    if (!isRecording) {
-      setRecPosition("center");
-      setTimeout(() => startRecording(), 300);
-    } else {
-      stopRecording();
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (isRecording) {
+        stopRecording();
+      }
+    };
+  }, [isRecording, stopRecording]);
+
+  // Handle recording button click/swipe with error handling
+  const handleRecClick = useCallback(async () => {
+    try {
+      if (!isRecording) {
+        setRecPosition("center");
+        setTimeout(() => startRecording(), 300);
+      } else {
+        await stopRecording();
+        setRecPosition("right");
+      }
+    } catch (error) {
+      console.error('Recording action failed:', error);
+      // Reset UI state on error
       setRecPosition("right");
     }
-  };
+  }, [isRecording, startRecording, stopRecording, setRecPosition]);
 
-  // Handle delete and reset recPosition
-  const handleDelete = () => {
+  // Handle delete with proper cleanup
+  const handleDelete = useCallback(() => {
     if (onDelete) onDelete();
     setRecPosition("right");
-  };
+    setShowDeleteDialog(false);
+  }, [onDelete, setRecPosition, setShowDeleteDialog]);
 
-  // Restore the original styles and logic
+  // If there's a recording error, only show the error message
+  if (recordingError) {
+    return (
+      <Typography 
+        color="error" 
+        sx={{ 
+          position: "absolute", 
+          bottom: 400, 
+          left: "50%", 
+          transform: "translateX(-50%)",
+          backgroundColor: "rgba(255,255,255,0.9)",
+          padding: 2,
+          borderRadius: 2,
+          boxShadow: 1,
+          textAlign: "center",
+          maxWidth: "80%"
+        }}
+      >
+        {recordingError}
+        <Typography
+          component="div"
+          sx={{ 
+            color: "primary.main", 
+            cursor: "pointer",
+            mt: 1,
+            fontSize: "0.9em",
+            "&:hover": {
+              textDecoration: "underline"
+            }
+          }}
+          onClick={() => window.location.reload()}
+        >
+          Tap to retry
+        </Typography>
+      </Typography>
+    );
+  }
+
   return (
     <>
       {/* Delete Recording Confirmation Dialog */}
       <Box
+        role="dialog"
+        aria-labelledby="delete-dialog-title"
         sx={{
           position: "absolute",
           bottom: 300,
@@ -50,17 +111,23 @@ const GlobalRecordingControls = ({
           display: showDeleteDialog ? "block" : "none",
         }}
       >
-        <Typography mb={1}>Delete recording?</Typography>
+        <Typography id="delete-dialog-title" mb={1}>Delete recording?</Typography>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
           <Typography
+            role="button"
+            tabIndex={0}
             sx={{ cursor: "pointer" }}
             onClick={() => setShowDeleteDialog(false)}
+            onKeyPress={(e) => e.key === 'Enter' && setShowDeleteDialog(false)}
           >
             no
           </Typography>
           <Typography
+            role="button"
+            tabIndex={0}
             sx={{ cursor: "pointer", fontWeight: "bold" }}
             onClick={handleDelete}
+            onKeyPress={(e) => e.key === 'Enter' && handleDelete()}
           >
             yes
           </Typography>
@@ -147,4 +214,4 @@ const GlobalRecordingControls = ({
   );
 };
 
-export default GlobalRecordingControls; 
+export default React.memo(GlobalRecordingControls); 

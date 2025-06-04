@@ -10,6 +10,7 @@ export const AudioProvider = ({ children }) => {
   const [duration, setDuration] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingError, setRecordingError] = useState(null);
 
   // Refs for media recorder and audio player
   const mediaRecorderRef = useRef(null);
@@ -21,10 +22,28 @@ export const AudioProvider = ({ children }) => {
   // Helper: get current blob
   const currentAudioBlob = recordings.length > 0 ? recordings[recordings.length - 1] : null;
 
-  // Setup media recorder on mount
+  // Cleanup function for audio resources
+  const cleanup = useCallback(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current = null;
+    }
+    if (timeUpdateIntervalRef.current) {
+      clearInterval(timeUpdateIntervalRef.current);
+      timeUpdateIntervalRef.current = null;
+    }
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    audioChunksRef.current = [];
+    setRecordingError(null);
+  }, []);
+
+  // Setup media recorder on mount with error handling
   useEffect(() => {
     async function setupMediaRecorder() {
       try {
+        setRecordingError(null);
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorderRef.current = new window.MediaRecorder(stream);
 
@@ -32,16 +51,27 @@ export const AudioProvider = ({ children }) => {
           audioChunksRef.current.push(event.data);
         };
 
+        mediaRecorderRef.current.onerror = (error) => {
+          console.error('MediaRecorder error:', error);
+          setRecordingError('Recording failed. Please try again.');
+          cleanup();
+        };
+
         mediaRecorderRef.current.onstop = () => {
           if (audioChunksRef.current.length > 0) {
             if (!shouldDeleteRef.current) {
-              const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-              setRecordings(prev => [...prev, blob]);
-              // Get duration of the new recording
-              const audio = new Audio(URL.createObjectURL(blob));
-              audio.addEventListener('loadedmetadata', () => {
-                setDuration(audio.duration);
-              });
+              try {
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                setRecordings(prev => [...prev, blob]);
+                // Get duration of the new recording
+                const audio = new Audio(URL.createObjectURL(blob));
+                audio.addEventListener('loadedmetadata', () => {
+                  setDuration(audio.duration);
+                });
+              } catch (error) {
+                console.error('Error creating recording blob:', error);
+                setRecordingError('Failed to save recording. Please try again.');
+              }
             } else {
               setRecordings([]);
               setDuration(0);
@@ -53,10 +83,20 @@ export const AudioProvider = ({ children }) => {
         };
       } catch (err) {
         console.error('Error accessing microphone:', err);
+        setRecordingError('Could not access microphone. Please check permissions.');
       }
     }
     setupMediaRecorder();
-  }, []);
+
+    // Cleanup on unmount
+    return () => {
+      cleanup();
+      // Release media stream
+      if (mediaRecorderRef.current?.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cleanup]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -156,15 +196,32 @@ export const AudioProvider = ({ children }) => {
     }
   }, []);
 
-  // Start recording
-  const startRecording = useCallback(() => {
-    setIsRecording(true);
-  }, []);
+  // Start recording with error handling
+  const startRecording = useCallback(async () => {
+    try {
+      setRecordingError(null);
+      if (!mediaRecorderRef.current) {
+        throw new Error('MediaRecorder not initialized');
+      }
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      setRecordingError('Failed to start recording. Please try again.');
+      cleanup();
+    }
+  }, [cleanup]);
 
-  // Stop recording
-  const stopRecording = useCallback(() => {
-    setIsRecording(false);
-  }, []);
+  // Stop recording with error handling
+  const stopRecording = useCallback(async () => {
+    try {
+      setRecordingError(null);
+      setIsRecording(false);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      setRecordingError('Failed to stop recording. Please try again.');
+      cleanup();
+    }
+  }, [cleanup]);
 
   return (
     <AudioContext.Provider value={{
@@ -182,7 +239,8 @@ export const AudioProvider = ({ children }) => {
       currentAudioBlob,
       startRecording,
       stopRecording,
-      recordingTime
+      recordingTime,
+      recordingError
     }}>
       {children}
     </AudioContext.Provider>
