@@ -53,6 +53,11 @@ const GlobalRecordingControls = ({
     setShowDeleteDialog(false);
   }, [onDelete, setRecPosition, setShowDeleteDialog]);
 
+  // Handle cancel (no) in delete dialog
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteDialog(false);
+  }, [setShowDeleteDialog]);
+
   // If there's a recording error, only show the error message
   if (recordingError) {
     return (
@@ -117,8 +122,8 @@ const GlobalRecordingControls = ({
             role="button"
             tabIndex={0}
             sx={{ cursor: "pointer" }}
-            onClick={() => setShowDeleteDialog(false)}
-            onKeyPress={(e) => e.key === 'Enter' && setShowDeleteDialog(false)}
+            onClick={handleCancelDelete}
+            onKeyPress={(e) => e.key === 'Enter' && handleCancelDelete()}
           >
             no
           </Typography>
