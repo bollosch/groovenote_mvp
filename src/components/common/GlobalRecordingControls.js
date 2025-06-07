@@ -15,9 +15,12 @@ const GlobalRecordingControls = ({
   const { 
     isRecording, 
     startRecording, 
-    stopRecording, 
+    stopRecording,
+    resetRecording,
     recordingTime,
-    recordingError 
+    recordingError,
+    isPlaying,
+    stop
   } = useAudioContext();
 
   // Local debug message state
@@ -36,6 +39,9 @@ const GlobalRecordingControls = ({
   const handleRecClick = useCallback(async () => {
     try {
       if (!isRecording) {
+        if (isPlaying) {
+          stop();
+        }
         setRecPosition("center");
         setTimeout(() => startRecording(), 300);
       } else {
@@ -44,19 +50,34 @@ const GlobalRecordingControls = ({
       }
     } catch (error) {
       console.error('Recording action failed:', error);
-      // Reset UI state on error
       setRecPosition("right");
     }
-  }, [isRecording, startRecording, stopRecording, setRecPosition]);
+  }, [isRecording, isPlaying, stop, startRecording, stopRecording, setRecPosition]);
 
   // Handle delete with proper cleanup
-  const handleDelete = useCallback(() => {
-    setDebugMsg('[UI Debug] YES clicked - delete confirmed');
-    console.log('[Debug] Delete confirmed - cleaning up recording');
-    if (onDelete) onDelete();
-    setRecPosition("right");
-    setShowDeleteDialog(false);
-  }, [onDelete, setRecPosition, setShowDeleteDialog]);
+  const handleDelete = useCallback(async () => {
+    try {
+      setDebugMsg('[UI Debug] YES clicked - delete confirmed');
+      console.log('[Debug] Delete confirmed - cleaning up recording');
+      
+      // First stop any active recording
+      if (isRecording) {
+        await stopRecording();
+      }
+      
+      // Reset the recording state in AudioContext
+      resetRecording();
+      
+      // Update UI state
+      if (onDelete) onDelete();
+      setRecPosition("right");
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error('Delete operation failed:', error);
+      setDebugMsg('[UI Debug] Delete operation failed');
+      setShowDeleteDialog(false);
+    }
+  }, [onDelete, setRecPosition, setShowDeleteDialog, isRecording, stopRecording, resetRecording]);
 
   // Handle cancel (no) in delete dialog
   const handleCancelDelete = useCallback(() => {
