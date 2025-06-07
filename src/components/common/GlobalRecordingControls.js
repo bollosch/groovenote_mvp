@@ -16,7 +16,7 @@ const GlobalRecordingControls = ({
     isRecording, 
     startRecording, 
     stopRecording,
-    resetRecording,
+    deleteRecording,
     recordingTime,
     recordingError,
     isPlaying,
@@ -60,13 +60,8 @@ const GlobalRecordingControls = ({
       setDebugMsg('[UI Debug] YES clicked - delete confirmed');
       console.log('[Debug] Delete confirmed - cleaning up recording');
       
-      // First stop any active recording
-      if (isRecording) {
-        await stopRecording();
-      }
-      
-      // Reset the recording state in AudioContext
-      resetRecording();
+      // Use the new deleteRecording function
+      await deleteRecording();
       
       // Update UI state
       if (onDelete) onDelete();
@@ -77,7 +72,7 @@ const GlobalRecordingControls = ({
       setDebugMsg('[UI Debug] Delete operation failed');
       setShowDeleteDialog(false);
     }
-  }, [onDelete, setRecPosition, setShowDeleteDialog, isRecording, stopRecording, resetRecording]);
+  }, [onDelete, setRecPosition, setShowDeleteDialog, deleteRecording]);
 
   // Handle cancel (no) in delete dialog
   const handleCancelDelete = useCallback(() => {

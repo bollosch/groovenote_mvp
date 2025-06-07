@@ -82,6 +82,25 @@ export const AudioProvider = ({ children }) => {
     }
   }, [cleanup, recordings.length, stopRecording]);
 
+  // Helper: fallback to previous recording or clear all
+  const fallbackToPreviousRecording = useCallback(() => {
+    setRecordings(prev => {
+      if (prev.length <= 1) {
+        setDuration(0);
+        setCurrentTime(0);
+        setIsPlaying(false);
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
+        }
+        return [];
+      } else {
+        const newRecordings = prev.slice(0, -1);
+        return newRecordings;
+      }
+    });
+  }, []);
+
   // Setup media recorder on mount with error handling
   useEffect(() => {
     async function setupMediaRecorder() {
@@ -120,23 +139,8 @@ export const AudioProvider = ({ children }) => {
                 setRecordingError('Failed to save recording. Please try again.');
               }
             } else {
-              setRecordings(prev => {
-                if (prev.length <= 1) {
-                  setDuration(0);
-                  setCurrentTime(0);
-                  return [];
-                } else {
-                  const newRecordings = prev.slice(0, -1);
-                  const lastBlob = newRecordings[newRecordings.length - 1];
-                  if (lastBlob) {
-                    const audio = new Audio(URL.createObjectURL(lastBlob));
-                    audio.addEventListener('loadedmetadata', () => {
-                      setDuration(audio.duration);
-                    });
-                  }
-                  return newRecordings;
-                }
-              });
+              console.log('[Debug] onstop: shouldDeleteRef true, fallback to previous recording');
+              fallbackToPreviousRecording();
               shouldDeleteRef.current = false;
             }
           }
@@ -150,7 +154,7 @@ export const AudioProvider = ({ children }) => {
     setupMediaRecorder();
 
     return () => cleanup();
-  }, [cleanup, recordings.length]); // Add recordings.length as dependency
+  }, [cleanup, recordings.length, fallbackToPreviousRecording]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -233,6 +237,13 @@ export const AudioProvider = ({ children }) => {
   const startRecording = useCallback(async () => {
     try {
       setRecordingError(null);
+      // Always reset playback, even if paused
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+        setIsPlaying(false);
+        setCurrentTime(0);
+      }
       if (!mediaRecorderRef.current) {
         throw new Error('MediaRecorder not initialized');
       }
@@ -243,6 +254,19 @@ export const AudioProvider = ({ children }) => {
       cleanup();
     }
   }, [cleanup]);
+
+  // Delete recording with proper flag setting
+  const deleteRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: Deleting recording');
+    if (isRecording) {
+      shouldDeleteRef.current = true;  // Set delete flag before stopping
+      await stopRecording();
+      // Do NOT call fallback here!
+    } else {
+      fallbackToPreviousRecording();
+      shouldDeleteRef.current = false;
+    }
+  }, [isRecording, stopRecording, fallbackToPreviousRecording]);
 
   // Stop playback completely
   const stop = useCallback(() => {
@@ -255,6 +279,35 @@ export const AudioProvider = ({ children }) => {
     }
   }, []);
 
+  // Effect: When recordings change, set up audio player and UI state for the latest recording
+  useEffect(() => {
+    console.log('[Debug] useEffect recordings changed:', recordings.length);
+    if (recordings.length === 0) {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      console.log('[Debug] No recordings left, player reset');
+    } else {
+      const lastBlob = recordings[recordings.length - 1];
+      if (lastBlob) {
+        const audio = new Audio(URL.createObjectURL(lastBlob));
+        audio.addEventListener('loadedmetadata', () => {
+          setDuration(audio.duration);
+          setCurrentTime(0);
+          setIsPlaying(false);
+          console.log('[Debug] Fallback to previous recording, duration:', audio.duration);
+        });
+        audioPlayerRef.current = audio;
+        audioPlayerRef.current.currentTime = 0;
+        console.log('[Debug] Audio player set up for fallback blob');
+      }
+    }
+  }, [recordings, setIsPlaying, setCurrentTime, setDuration]);
+
   return (
     <AudioContext.Provider value={{
       recordings,
@@ -262,18 +315,19 @@ export const AudioProvider = ({ children }) => {
       currentTime,
       duration,
       isRecording,
-      play,
-      pause,
-      stop,
-      seek,
-      resetRecording,
-      setCurrentTime,
-      setDuration,
-      currentAudioBlob,
+      recordingTime,
+      recordingError,
       startRecording,
       stopRecording,
-      recordingTime,
-      recordingError
+      resetRecording,
+      deleteRecording,
+      play,
+      pause,
+      seek,
+      stop,
+      setCurrentTime,
+      setDuration,
+      currentAudioBlob: recordings.length > 0 ? recordings[recordings.length - 1] : null
     }}>
       {children}
     </AudioContext.Provider>

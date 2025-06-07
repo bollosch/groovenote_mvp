@@ -58,9 +58,9 @@ const BlurredRecordingOverlay = () => {
           // Calculate positive envelope value (max absolute value)
           const envelopeValue = Math.max(...Array.from(dataArray).map(Math.abs));
           
-          // Shift buffer left and add new value
-          bufferRef.current.shift();
+          // Shift buffer left and add new value at the end (right)
           bufferRef.current.push(envelopeValue);
+          if (bufferRef.current.length > width) bufferRef.current.shift();
           
           // Draw
           const ctx = canvas.getContext('2d');
@@ -70,14 +70,11 @@ const BlurredRecordingOverlay = () => {
           ctx.fillStyle = '#fafbfc';
           ctx.fillRect(0, 0, width, height);
           
-          // Draw waveform
+          // Draw waveform from left (oldest) to right (newest)
           ctx.beginPath();
-          ctx.moveTo(width, height / 2);
-          
-          // Draw from right to left
-          for (let i = 0; i < width; i++) {
+          for (let i = 0; i < bufferRef.current.length; i++) {
             const value = bufferRef.current[i];
-            const x = width - i;
+            const x = i;
             const y = height / 2 - (value * height / 2);
             if (i === 0) {
               ctx.moveTo(x, y);
@@ -85,15 +82,13 @@ const BlurredRecordingOverlay = () => {
               ctx.lineTo(x, y);
             }
           }
-          
           // Mirror the waveform below the center
-          for (let i = width - 1; i >= 0; i--) {
+          for (let i = bufferRef.current.length - 1; i >= 0; i--) {
             const value = bufferRef.current[i];
-            const x = width - i;
+            const x = i;
             const y = height / 2 + (value * height / 2);
             ctx.lineTo(x, y);
           }
-          
           ctx.closePath();
           ctx.fillStyle = '#1976d2';
           ctx.globalAlpha = 0.7;
