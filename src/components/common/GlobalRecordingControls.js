@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect } from 'react';
 import { Box, Typography, IconButton } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useAudioContext } from '../../context/AudioContext';
+import DeleteRecordingDialog from './DeleteRecordingDialog';
 
 const GlobalRecordingControls = ({
   showDeleteDialog,
@@ -17,14 +19,14 @@ const GlobalRecordingControls = ({
     startRecording, 
     stopRecording,
     deleteRecording,
+    restartRecording,
     recordingTime,
     recordingError,
     isPlaying,
     stop
   } = useAudioContext();
 
-  // Local debug message state
-  const [debugMsg, setDebugMsg] = React.useState('');
+
 
   // Cleanup effect
   useEffect(() => {
@@ -34,6 +36,16 @@ const GlobalRecordingControls = ({
       }
     };
   }, [isRecording, stopRecording]);
+
+  // Handle restart recording (false start)
+  const handleRestart = useCallback(async () => {
+    try {
+      console.log('[Debug] Restart clicked - marking current recording as false start');
+      await restartRecording();
+    } catch (error) {
+      console.error('Restart recording failed:', error);
+    }
+  }, [restartRecording]);
 
   // Handle recording button click/swipe with error handling
   const handleRecClick = useCallback(async () => {
@@ -57,10 +69,7 @@ const GlobalRecordingControls = ({
   // Handle delete with proper cleanup
   const handleDelete = useCallback(async () => {
     try {
-      setDebugMsg('[UI Debug] YES clicked - delete confirmed');
-      console.log('[Debug] Delete confirmed - cleaning up recording');
-      
-      // Use the new deleteRecording function
+      console.log('[UI Debug] YES clicked - delete confirmed');
       await deleteRecording();
       
       // Update UI state
@@ -69,15 +78,14 @@ const GlobalRecordingControls = ({
       setShowDeleteDialog(false);
     } catch (error) {
       console.error('Delete operation failed:', error);
-      setDebugMsg('[UI Debug] Delete operation failed');
+      console.log('[UI Debug] Delete operation failed');
       setShowDeleteDialog(false);
     }
   }, [onDelete, setRecPosition, setShowDeleteDialog, deleteRecording]);
 
   // Handle cancel (no) in delete dialog
   const handleCancelDelete = useCallback(() => {
-    setDebugMsg('[UI Debug] NO clicked - cancel delete');
-    console.log('[Debug] Delete cancelled - preserving recording state');
+    console.log('[UI Debug] NO clicked - cancel delete');
     setShowDeleteDialog(false);
     if (isRecording) {
       console.log('[Debug] Recording is active - maintaining recording state');
@@ -125,50 +133,11 @@ const GlobalRecordingControls = ({
   return (
     <>
       {/* Delete Recording Confirmation Dialog */}
-      <Box
-        role="dialog"
-        aria-labelledby="delete-dialog-title"
-        sx={{
-          position: "absolute",
-          bottom: 300,
-          left: "50%",
-          transform: "translateX(-50%)",
-          backgroundColor: "#fff",
-          padding: 2,
-          borderRadius: 2,
-          boxShadow: 3,
-          zIndex: 10,
-          textAlign: "center",
-          display: showDeleteDialog ? "block" : "none",
-        }}
-      >
-        {/* Debug info */}
-        <Box sx={{ mb: 1, p: 1, background: '#eee', borderRadius: 1 }}>
-          <Typography variant="caption" color="secondary">[Debug] isRecording: {String(isRecording)} | showDeleteDialog: {String(showDeleteDialog)}</Typography>
-          <Typography variant="caption" color="primary">{debugMsg}</Typography>
-        </Box>
-        <Typography id="delete-dialog-title" mb={1}>Delete recording?</Typography>
-        <Box sx={{ display: "flex", gap: 2, justifyContent: "center" }}>
-          <Typography
-            role="button"
-            tabIndex={0}
-            sx={{ cursor: "pointer" }}
-            onClick={handleCancelDelete}
-            onKeyPress={(e) => e.key === 'Enter' && handleCancelDelete()}
-          >
-            no
-          </Typography>
-          <Typography
-            role="button"
-            tabIndex={0}
-            sx={{ cursor: "pointer", fontWeight: "bold" }}
-            onClick={handleDelete}
-            onKeyPress={(e) => e.key === 'Enter' && handleDelete()}
-          >
-            yes
-          </Typography>
-        </Box>
-      </Box>
+      <DeleteRecordingDialog
+        open={showDeleteDialog}
+        onConfirm={handleDelete}
+        onCancel={handleCancelDelete}
+      />
 
       {/* Swipable Recording Button (half-visible when right) */}
       {!isRecording && (
@@ -204,7 +173,8 @@ const GlobalRecordingControls = ({
         <Box
           sx={{
             position: "absolute",
-            bottom: 234,
+            // Adjust position of the recording controls when active
+            bottom: 234 ,
             height: 220,
             width: "100%",
             display: "flex",
@@ -243,6 +213,29 @@ const GlobalRecordingControls = ({
             >
               start new project
             </Typography>
+            
+            {/* Restart Recording Button */}
+            <Box
+              onClick={handleRestart}
+              sx={{
+                position: "absolute",
+                bottom: -112,
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                backgroundColor: "gray",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                mt: 1,
+                "&:hover": {
+                  backgroundColor: "darkgray",
+                }
+              }}
+            >
+              <RestartAltIcon sx={{ color: "white", fontSize: 20 }} />
+            </Box>
           </Box>
         </Box>
       )}

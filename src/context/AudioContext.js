@@ -268,6 +268,47 @@ export const AudioProvider = ({ children }) => {
     }
   }, [isRecording, stopRecording, fallbackToPreviousRecording]);
 
+  // Restart recording (mark current as false start and start new)
+  const restartRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: Restarting recording');
+    if (isRecording) {
+      try {
+        // Stop current recording first
+        await stopRecording();
+        
+        // Wait a moment for the recording to finish processing
+        setTimeout(async () => {
+          try {
+            // Mark the last recorded blob as false start
+            setRecordings(prev => {
+              if (prev.length > 0) {
+                const newRecordings = [...prev];
+                const lastBlob = newRecordings[newRecordings.length - 1];
+                if (lastBlob) {
+                  // Add metadata to mark as false start
+                  lastBlob._metadata = { label: 'fs', isFalseStart: true };
+                  console.log('[Debug] Marked last recording as false start');
+                }
+                return newRecordings;
+              }
+              return prev;
+            });
+            
+            // Start new recording, with a delay of 700ms to ensure the previous recording is processed
+            await startRecording();
+            console.log('[Debug] New recording started after restart');
+          } catch (error) {
+            console.error('Failed to start new recording after restart:', error);
+            setRecordingError('Failed to restart recording. Please try again.');
+          }
+                  }, 100); // 100ms buffer for safe processing
+      } catch (error) {
+        console.error('Failed to stop recording for restart:', error);
+        setRecordingError('Failed to restart recording. Please try again.');
+      }
+    }
+  }, [isRecording, stopRecording, startRecording]);
+
   // Stop playback completely
   const stop = useCallback(() => {
     if (audioPlayerRef.current) {
@@ -321,6 +362,7 @@ export const AudioProvider = ({ children }) => {
       stopRecording,
       resetRecording,
       deleteRecording,
+      restartRecording,
       play,
       pause,
       seek,
