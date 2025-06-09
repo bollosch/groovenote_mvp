@@ -2,6 +2,8 @@ import React, { createContext, useContext, useRef, useState, useEffect, useCallb
 
 const AudioContext = createContext();
 
+const MAX_RECORDINGS = 10; // Maximum number of recordings to keep
+
 export const AudioProvider = ({ children }) => {
   // State for recordings and playback
   const [recordings, setRecordings] = useState([]); // Array of Blobs
@@ -39,6 +41,66 @@ export const AudioProvider = ({ children }) => {
     setRecordingError(null);
   }, []);
 
+  // Stop recording with error handling
+  const stopRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: stopRecording called');
+    try {
+      setRecordingError(null);
+      setIsRecording(false);
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+      setRecordingError('Failed to stop recording. Please try again.');
+      cleanup();
+    }
+  }, [cleanup]);
+
+  // Reset recording with history management
+  const resetRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: Resetting recording state');
+    await stopRecording(); // Always stop first
+    cleanup();
+    if (recordings.length <= 1) {
+      setRecordings([]);
+      setDuration(0);
+      setCurrentTime(0);
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+    } else {
+      setRecordings(prev => {
+        const newRecordings = prev.slice(0, -1);
+        const lastBlob = newRecordings[newRecordings.length - 1];
+        if (lastBlob) {
+          const audio = new Audio(URL.createObjectURL(lastBlob));
+          audio.addEventListener('loadedmetadata', () => {
+            setDuration(audio.duration);
+          });
+        }
+        return newRecordings;
+      });
+    }
+  }, [cleanup, recordings.length, stopRecording]);
+
+  // Helper: fallback to previous recording or clear all
+  const fallbackToPreviousRecording = useCallback(() => {
+    setRecordings(prev => {
+      if (prev.length <= 1) {
+        setDuration(0);
+        setCurrentTime(0);
+        setIsPlaying(false);
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current = null;
+        }
+        return [];
+      } else {
+        const newRecordings = prev.slice(0, -1);
+        return newRecordings;
+      }
+    });
+  }, []);
+
   // Setup media recorder on mount with error handling
   useEffect(() => {
     async function setupMediaRecorder() {
@@ -62,20 +124,23 @@ export const AudioProvider = ({ children }) => {
             if (!shouldDeleteRef.current) {
               try {
                 const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                setRecordings(prev => [...prev, blob]);
-                // Get duration of the new recording
+                setRecordings(prev => {
+                  const newRecordings = [...prev, blob];
+                  if (newRecordings.length > MAX_RECORDINGS) {
+                    return newRecordings.slice(-MAX_RECORDINGS);
+                  }
+                  return newRecordings;
+                });
                 const audio = new Audio(URL.createObjectURL(blob));
                 audio.addEventListener('loadedmetadata', () => {
                   setDuration(audio.duration);
                 });
               } catch (error) {
-                console.error('Error creating recording blob:', error);
                 setRecordingError('Failed to save recording. Please try again.');
               }
             } else {
-              setRecordings([]);
-              setDuration(0);
-              setCurrentTime(0);
+              console.log('[Debug] onstop: shouldDeleteRef true, fallback to previous recording');
+              fallbackToPreviousRecording();
               shouldDeleteRef.current = false;
             }
           }
@@ -88,15 +153,8 @@ export const AudioProvider = ({ children }) => {
     }
     setupMediaRecorder();
 
-    // Cleanup on unmount
-    return () => {
-      cleanup();
-      // Release media stream
-      if (mediaRecorderRef.current?.stream) {
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cleanup]);
+    return () => cleanup();
+  }, [cleanup, recordings.length, fallbackToPreviousRecording]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -175,31 +233,17 @@ export const AudioProvider = ({ children }) => {
     }, 100);
   }, [currentAudioBlob]);
 
-  // Reset recording
-  const resetRecording = useCallback(() => {
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current = null;
-    }
-    setIsPlaying(false);
-    setCurrentTime(0);
-    if (timeUpdateIntervalRef.current) {
-      clearInterval(timeUpdateIntervalRef.current);
-      timeUpdateIntervalRef.current = null;
-    }
-    if (mediaRecorderRef.current?.state === 'recording') {
-      shouldDeleteRef.current = true;
-      mediaRecorderRef.current.stop();
-    } else {
-      setRecordings([]);
-      setDuration(0);
-    }
-  }, []);
-
   // Start recording with error handling
   const startRecording = useCallback(async () => {
     try {
       setRecordingError(null);
+      // Always reset playback, even if paused
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+        setIsPlaying(false);
+        setCurrentTime(0);
+      }
       if (!mediaRecorderRef.current) {
         throw new Error('MediaRecorder not initialized');
       }
@@ -211,17 +255,99 @@ export const AudioProvider = ({ children }) => {
     }
   }, [cleanup]);
 
-  // Stop recording with error handling
-  const stopRecording = useCallback(async () => {
-    try {
-      setRecordingError(null);
-      setIsRecording(false);
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-      setRecordingError('Failed to stop recording. Please try again.');
-      cleanup();
+  // Delete recording with proper flag setting
+  const deleteRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: Deleting recording');
+    if (isRecording) {
+      shouldDeleteRef.current = true;  // Set delete flag before stopping
+      await stopRecording();
+      // Do NOT call fallback here!
+    } else {
+      fallbackToPreviousRecording();
+      shouldDeleteRef.current = false;
     }
-  }, [cleanup]);
+  }, [isRecording, stopRecording, fallbackToPreviousRecording]);
+
+  // Restart recording (mark current as false start and start new)
+  const restartRecording = useCallback(async () => {
+    console.log('[Debug] AudioContext: Restarting recording');
+    if (isRecording) {
+      try {
+        // Stop current recording first
+        await stopRecording();
+        
+        // Wait a moment for the recording to finish processing
+        setTimeout(async () => {
+          try {
+            // Mark the last recorded blob as false start
+            setRecordings(prev => {
+              if (prev.length > 0) {
+                const newRecordings = [...prev];
+                const lastBlob = newRecordings[newRecordings.length - 1];
+                if (lastBlob) {
+                  // Add metadata to mark as false start
+                  lastBlob._metadata = { label: 'fs', isFalseStart: true };
+                  console.log('[Debug] Marked last recording as false start');
+                }
+                return newRecordings;
+              }
+              return prev;
+            });
+            
+            // Start new recording, with a delay of 700ms to ensure the previous recording is processed
+            await startRecording();
+            console.log('[Debug] New recording started after restart');
+          } catch (error) {
+            console.error('Failed to start new recording after restart:', error);
+            setRecordingError('Failed to restart recording. Please try again.');
+          }
+                  }, 100); // 100ms buffer for safe processing
+      } catch (error) {
+        console.error('Failed to stop recording for restart:', error);
+        setRecordingError('Failed to restart recording. Please try again.');
+      }
+    }
+  }, [isRecording, stopRecording, startRecording]);
+
+  // Stop playback completely
+  const stop = useCallback(() => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.currentTime = 0;
+      setCurrentTime(0);
+      setIsPlaying(false);
+      clearInterval(timeUpdateIntervalRef.current);
+    }
+  }, []);
+
+  // Effect: When recordings change, set up audio player and UI state for the latest recording
+  useEffect(() => {
+    console.log('[Debug] useEffect recordings changed:', recordings.length);
+    if (recordings.length === 0) {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(0);
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
+      console.log('[Debug] No recordings left, player reset');
+    } else {
+      const lastBlob = recordings[recordings.length - 1];
+      if (lastBlob) {
+        const audio = new Audio(URL.createObjectURL(lastBlob));
+        audio.addEventListener('loadedmetadata', () => {
+          setDuration(audio.duration);
+          setCurrentTime(0);
+          setIsPlaying(false);
+          console.log('[Debug] Fallback to previous recording, duration:', audio.duration);
+        });
+        audioPlayerRef.current = audio;
+        audioPlayerRef.current.currentTime = 0;
+        console.log('[Debug] Audio player set up for fallback blob');
+      }
+    }
+  }, [recordings, setIsPlaying, setCurrentTime, setDuration]);
 
   return (
     <AudioContext.Provider value={{
@@ -230,17 +356,20 @@ export const AudioProvider = ({ children }) => {
       currentTime,
       duration,
       isRecording,
+      recordingTime,
+      recordingError,
+      startRecording,
+      stopRecording,
+      resetRecording,
+      deleteRecording,
+      restartRecording,
       play,
       pause,
       seek,
-      resetRecording,
+      stop,
       setCurrentTime,
       setDuration,
-      currentAudioBlob,
-      startRecording,
-      stopRecording,
-      recordingTime,
-      recordingError
+      currentAudioBlob: recordings.length > 0 ? recordings[recordings.length - 1] : null
     }}>
       {children}
     </AudioContext.Provider>

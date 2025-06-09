@@ -19,7 +19,8 @@ const TransportBar = ({
   onNextMarker,
   onABLoop,
   onMenu,
-  onSeek
+  onSeek,
+  isRecording
 }) => {
   // State for repeat mode cycling
   const [repeatMode, setRepeatMode] = useState(0); // 0: Repeat, 1: RepeatOne, 2: RepeatOn
@@ -71,7 +72,9 @@ const TransportBar = ({
       margin: '0 auto',
       position: 'relative',
       py: 0.5,
-      backgroundColor: '#f5f5f5'
+      backgroundColor: '#f5f5f5',
+      userSelect: isRecording ? 'none' : 'auto',
+      pointerEvents: isRecording ? 'none' : 'auto',
     }}>
       {/* Transport Controls Container */}
       <Box sx={{ 
@@ -87,7 +90,7 @@ const TransportBar = ({
         <IconButton 
           size="medium"
           onClick={handleRepeatClick}
-          disabled={!hasRecording}
+          disabled={!hasRecording || isRecording}
           sx={{ 
             position: 'absolute',
             left: '15%',
@@ -100,7 +103,7 @@ const TransportBar = ({
         <IconButton 
           size="medium"
           onClick={onPrevMarker}
-          disabled={!hasRecording}
+          disabled={!hasRecording || isRecording}
           sx={{ 
             position: 'absolute',
             left: '30%',
@@ -114,7 +117,7 @@ const TransportBar = ({
         {/* Center Play Button */}
         <IconButton
           onClick={onPlayPause}
-          disabled={!hasRecording}
+          disabled={!hasRecording || isRecording}
           sx={{
             width: 58,
             height: 58,
@@ -136,7 +139,7 @@ const TransportBar = ({
         <IconButton 
           size="medium"
           onClick={onNextMarker}
-          disabled={!hasRecording}
+          disabled={!hasRecording || isRecording}
           sx={{ 
             position: 'absolute',
             right: '30%',
@@ -149,6 +152,7 @@ const TransportBar = ({
         <IconButton 
           size="medium"
           onClick={onMenu}
+          disabled={isRecording}
           sx={{ 
             position: 'absolute',
             right: '15%',
@@ -167,7 +171,8 @@ const TransportBar = ({
         alignItems: 'center',
         justifyContent: 'center',
         py: 1,
-        backgroundColor: '#fff'
+        backgroundColor: '#fff',
+        userSelect: isRecording ? 'none' : 'auto',
       }}>
         {/* Current Time */}
         <Typography sx={{ width: 50, textAlign: 'right', pr: 1 }}>
@@ -185,10 +190,10 @@ const TransportBar = ({
             overflow: 'hidden',
             display: 'flex',
             alignItems: 'center',
-            cursor: hasRecording ? 'pointer' : 'default',
+            cursor: hasRecording && !isRecording ? 'pointer' : 'default',
             position: 'relative'
           }}
-          onClick={handleTimelineClick}
+          onClick={isRecording ? undefined : handleTimelineClick}
         >
           <Box sx={{
             height: '100%',

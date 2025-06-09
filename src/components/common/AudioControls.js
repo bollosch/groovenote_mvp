@@ -5,15 +5,14 @@ import { useAudioContext } from '../../context/AudioContext';
 
 const AudioControls = () => {
   const {
+    play,
+    pause,
     isPlaying,
     currentTime,
     duration,
-    isRecording,
-    play,
-    pause,
     seek,
-    recordings,
-    currentAudioBlob
+    currentAudioBlob,
+    isRecording
   } = useAudioContext();
 
   // Dummy handlers for other transport controls
@@ -56,6 +55,7 @@ const AudioControls = () => {
         onABLoop={handleABLoop}
         onMenu={handleMenu}
         onSeek={handleSeek}
+        isRecording={isRecording}
       />
     </Box>
   );
