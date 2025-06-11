@@ -51,13 +51,25 @@ const BlockWaveform = ({
           const canvas = canvasRef.current;
           if (!canvas) return;
 
+          // High-DPI scaling
+          const dpr = window.devicePixelRatio || 1;
+          const cssWidth = width;
+          const cssHeight = height;
+          canvas.width = Math.round(cssWidth * dpr);
+          canvas.height = Math.round(cssHeight * dpr);
+          canvas.style.width = cssWidth + 'px';
+          canvas.style.height = cssHeight + 'px';
+
           const ctx = canvas.getContext('2d');
+          ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset any existing transforms
+          ctx.scale(dpr, dpr);
+          ctx.imageSmoothingEnabled = false;
           // === CONFIGURABLE PARAMETERS ===
           const barWidth = 2;
           const gap = 1;
           const desiredScrollDurationMs = 10000; // 20 seconds for the whole waveform to scroll off
           // ==============================
-          let totalBars = Math.floor(width / (barWidth + gap));
+          let totalBars = Math.ceil(width / (barWidth + gap));
           if (!Number.isFinite(totalBars) || totalBars <= 0) {
             console.warn('BlockWaveform: Invalid totalBars calculation', { width, barWidth, gap, totalBars });
             totalBars = 100; // fallback
@@ -113,12 +125,12 @@ const BlockWaveform = ({
             }
             // Clear canvas
             ctx.clearRect(0, 0, width, height);
-            // Draw bars with fractional offset
+            // Draw bars with integer pixel alignment
             ctx.fillStyle = waveColor;
             for (let i = 0; i < totalBars; i++) {
-              const x = i * (barWidth + gap) - scrollOffset;
+              const x = Math.round(i * (barWidth + gap) - scrollOffset);
+              const barHeight = Math.round(barBuffer[i] * height);
               if (x + barWidth >= 0 && x <= width) {
-                const barHeight = barBuffer[i] * height;
                 ctx.fillRect(x, height - barHeight, barWidth, barHeight);
               }
             }
