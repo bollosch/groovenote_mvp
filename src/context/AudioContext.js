@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect, useCallback, useMemo } from 'react';
 
 const AudioContext = createContext();
 
@@ -26,6 +26,15 @@ export const AudioProvider = ({ children }) => {
 
   // Repeat-one (loop) playback option (default: false)
   const repeatOne = false; // TODO: make this configurable in the future
+
+  // Marker naming sequence (memorized)
+  const markerNames = useMemo(() => [
+    'Intro', 'Verse 1', 'Pre-Chorus 1', 'Chorus 1', 'Interlude',
+    'Verse 2', 'Pre-Chorus 2', 'Chorus 2', 'Bridge', 'Chorus 3', 'Outro'
+  ], []);
+
+  // Marker state
+  const [markers, setMarkers] = useState([]);
 
   // Cleanup function for audio resources
   const cleanup = useCallback(() => {
@@ -237,6 +246,11 @@ export const AudioProvider = ({ children }) => {
 
   // Start recording with error handling
   const startRecording = useCallback(async () => {
+    if (isRecording) return;
+
+    // Reset markers for the new recording session
+    setMarkers([]);
+
     try {
       setRecordingError(null);
       if (audioPlayerRef.current) {
@@ -332,6 +346,29 @@ export const AudioProvider = ({ children }) => {
     }
   }, [recordings]);
 
+  // Add marker at current time or timestamp with next available name
+  const addMarker = useCallback(() => {
+    if (!isRecording) return;
+    const now = Date.now();
+    const markerTime = now / 1000;
+
+    const marker = {
+      id: `${now}-${Math.random().toString(36).substring(2, 8)}`,
+      time: markerTime,
+      name: `Marker ${markers.length + 1}`
+    };
+
+    const nextIndex = markers.length;
+    if (nextIndex < markerNames.length) {
+      marker.name = markerNames[nextIndex];
+    } else {
+      marker.name = `Marker ${nextIndex + 1}`;
+    }
+
+    console.debug('[Debug] Adding marker:', marker);
+    setMarkers(prev => [...prev, marker]);
+  }, [isRecording, markers.length, markerNames]);
+
   return (
     <AudioContext.Provider value={{
       recordings,
@@ -351,7 +388,9 @@ export const AudioProvider = ({ children }) => {
       stop,
       setCurrentTime,
       setDuration,
-      currentAudioBlob: recordings.length > 0 ? recordings[recordings.length - 1] : null
+      currentAudioBlob: recordings.length > 0 ? recordings[recordings.length - 1] : null,
+      markers,
+      addMarker
     }}>
       {children}
     </AudioContext.Provider>

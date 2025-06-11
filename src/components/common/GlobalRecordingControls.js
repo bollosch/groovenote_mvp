@@ -23,7 +23,9 @@ const GlobalRecordingControls = ({
     recordingTime,
     recordingError,
     isPlaying,
-    stop
+    stop,
+    currentTime,
+    addMarker
   } = useAudioContext();
 
 
@@ -91,6 +93,30 @@ const GlobalRecordingControls = ({
       console.log('[Debug] Recording is active - maintaining recording state');
     }
   }, [setShowDeleteDialog, isRecording]);
+
+  // Add marker button handler
+  const handleSetMarker = useCallback(() => {
+    if (isRecording) {
+      addMarker(Date.now() / 1000);
+    } else if (isPlaying) {
+      addMarker(currentTime);
+    }
+  }, [isRecording, isPlaying, addMarker, currentTime]);
+
+  // Keyboard shortcut for 'm' to set marker
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (isRecording && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault();
+        addMarker(Date.now() / 1000);
+      } else if (isPlaying && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault();
+        addMarker(currentTime);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRecording, isPlaying, addMarker, currentTime]);
 
   // If there's a recording error, only show the error message
   if (recordingError) {
@@ -193,7 +219,10 @@ const GlobalRecordingControls = ({
               gap: 2,
             }}
           >
-            <Typography sx={{ cursor: "pointer" }}>set marker</Typography>
+            {/* Set Marker Button */}
+            <Typography sx={{ cursor: "pointer" }} onClick={handleSetMarker}>
+              set marker
+            </Typography>
             <IconButton onClick={() => { console.log('[Debug] Delete icon clicked - opening dialog'); setShowDeleteDialog(true); }}>
               <DeleteIcon />
             </IconButton>

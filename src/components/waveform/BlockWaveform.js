@@ -12,6 +12,7 @@ const BlockWaveform = ({
   progressColor,
   showProgress,
   onPositionChange,
+  markers = [],
 }) => {
   const [mediaElement, setMediaElement] = useState(null);
   const audioRef = useRef(null);
@@ -21,6 +22,12 @@ const BlockWaveform = ({
   const sourceRef = useRef(null);
   const animationFrameRef = useRef(null);
   const canvasRef = useRef(null);
+  const markersRef = useRef(markers);
+  const markerElementsRef = useRef({});
+
+  useEffect(() => {
+    markersRef.current = markers;
+  }, [markers]);
 
   // Handle live recording visualization
   useEffect(() => {
@@ -48,13 +55,14 @@ const BlockWaveform = ({
           const bufferLength = analyser.frequencyBinCount;
           const dataArray = new Float32Array(bufferLength);
           
+          const markerTriangleHeight = 10;
           const canvas = canvasRef.current;
           if (!canvas) return;
 
           // High-DPI scaling
           const dpr = window.devicePixelRatio || 1;
           const cssWidth = width;
-          const cssHeight = height;
+          const cssHeight = height + markerTriangleHeight;
           canvas.width = Math.round(cssWidth * dpr);
           canvas.height = Math.round(cssHeight * dpr);
           canvas.style.width = cssWidth + 'px';
@@ -124,7 +132,7 @@ const BlockWaveform = ({
               }
             }
             // Clear canvas
-            ctx.clearRect(0, 0, width, height);
+            ctx.clearRect(0, 0, width, cssHeight);
             // Draw bars with integer pixel alignment
             ctx.fillStyle = waveColor;
             for (let i = 0; i < totalBars; i++) {
@@ -134,6 +142,43 @@ const BlockWaveform = ({
                 ctx.fillRect(x, height - barHeight, barWidth, barHeight);
               }
             }
+            
+            // Update positions of marker elements
+            const currentMarkers = markersRef.current;
+            const nowSec = Date.now() / 1000;
+            const bufferDuration = desiredScrollDurationMs / 1000;
+            const displayedMarkers = {};
+
+            if (currentMarkers && currentMarkers.length > 0) {
+              currentMarkers.forEach(marker => {
+                const markerAgeSec = nowSec - marker.time;
+                displayedMarkers[marker.id] = true;
+                const markerEl = markerElementsRef.current[marker.id];
+
+                if (markerAgeSec >= 0 && markerAgeSec <= bufferDuration) {
+                  const markerX = Math.round(width - (markerAgeSec / bufferDuration) * width);
+                  if (markerEl) {
+                    markerEl.style.transform = `translateX(${markerX}px)`;
+                    markerEl.style.visibility = 'visible';
+                  }
+                } else {
+                  if (markerEl) {
+                    markerEl.style.visibility = 'hidden';
+                  }
+                }
+              });
+            }
+
+            // Hide markers that are no longer in the list
+            for (const id in markerElementsRef.current) {
+              if (!displayedMarkers[id]) {
+                const markerEl = markerElementsRef.current[id];
+                if (markerEl) {
+                  markerEl.style.visibility = 'hidden';
+                }
+              }
+            }
+
             animationFrameRef.current = requestAnimationFrame(draw);
           };
           // Start animation with timestamp
@@ -186,17 +231,52 @@ const BlockWaveform = ({
   };
 
   return (
-    <Box sx={{ width, height, position: 'relative' }}>
+    <Box sx={{ width, height: height + 10, position: 'relative' }}>
       {isRecording ? (
-        <canvas
-          ref={canvasRef}
-          width={width}
-          height={height}
-          style={{
-            width: '100%',
-            height: '100%',
-          }}
-        />
+        <>
+          <canvas
+            ref={canvasRef}
+            width={width}
+            height={height + 10}
+            style={{
+              width: '100%',
+              height: '100%',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              top: `${height}px`,
+              left: 0,
+              width: '100%',
+              height: '10px',
+              zIndex: 5,
+              pointerEvents: 'none',
+            }}
+          >
+            {markers.map(marker => (
+              <Box
+                key={marker.id}
+                ref={el => (markerElementsRef.current[marker.id] = el)}
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: '-6px',
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderBottom: '10px solid black',
+                  visibility: 'hidden',
+                  willChange: 'transform',
+                }}
+              />
+            ))}
+          </Box>
+        </>
       ) : audioBlob ? (
         <AudioVisualizer
           blob={audioBlob}
@@ -234,6 +314,7 @@ BlockWaveform.propTypes = {
   progressColor: PropTypes.string,
   showProgress: PropTypes.bool,
   onPositionChange: PropTypes.func,
+  markers: PropTypes.array,
 };
 
 export default BlockWaveform; 

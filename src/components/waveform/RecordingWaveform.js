@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import BlockWaveform from './BlockWaveform';
+import { useAudioContext } from '../../context/AudioContext';
 
 const RecordingWaveform = ({
   audioBlob,
@@ -12,6 +13,7 @@ const RecordingWaveform = ({
   showProgress = false,
   onPositionChange,
 }) => {
+  const { markers } = useAudioContext();
   return (
     <BlockWaveform
       audioBlob={audioBlob}
@@ -22,6 +24,7 @@ const RecordingWaveform = ({
       progressColor={progressColor}
       showProgress={showProgress}
       onPositionChange={onPositionChange}
+      markers={markers}
     />
   );
 };
